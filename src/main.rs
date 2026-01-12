@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use clap::Parser;
+use futures::future::join_all;
 use squalid::_d;
 use tokio::{
     net::{TcpListener, TcpStream},
@@ -32,7 +33,7 @@ async fn main() -> Result<(), anyhow::Error> {
         }
     });
 
-    let database = Arc::new(Database::new(args.db_dir).await);
+    let mut database = Arc::new(Database::new(args.db_dir).await);
 
     let mut tcp_requests: Vec<JoinHandle<()>> = _d();
 
@@ -51,7 +52,13 @@ async fn main() -> Result<(), anyhow::Error> {
                 tcp_requests.push(join_handle);
             }
             World::CreateTable((table, callback)) => {
-                unimplemented!()
+                let _ = join_all(tcp_requests).await;
+                Arc::get_mut(&mut database)
+                    .unwrap()
+                    .create_table(table)
+                    .await;
+                callback.await;
+                tcp_requests = _d();
             }
         }
     }
