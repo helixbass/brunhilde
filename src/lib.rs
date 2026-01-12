@@ -144,7 +144,7 @@ pub struct Table {
 
 impl Table {
     pub async fn new_from_disk(uuid: Uuid, dir_entry: &DirEntry) -> Self {
-        let rows = read_table_contents(uuid, dir_entry).await;
+        let rows = read_table_contents(dir_entry).await;
         Self {
             uuid,
             next_event_id: match rows.is_empty() {
@@ -192,6 +192,6 @@ async fn write_table_contents(rows: &Vec<Row>, table: Uuid, directory: &Path) {
     .unwrap()
 }
 
-async fn read_table_contents(table: Uuid, dir_entry: &DirEntry) -> Vec<Row> {
-    unimplemented!()
+async fn read_table_contents(dir_entry: &DirEntry) -> Vec<Row> {
+    rkyv::from_bytes::<_, rancor::Error>(&fs::read(&dir_entry.path()).await.unwrap()).unwrap()
 }
