@@ -1,9 +1,10 @@
 use std::process::Command;
+use std::time::Duration;
 
 use rkyv::{rancor, string::ArchivedString, vec::ArchivedVec};
 use smol_str::ToSmolStr;
 use tempfile::tempdir;
-use tokio::net::TcpStream;
+use tokio::{net::TcpStream, time::timeout};
 use uuid::Uuid;
 
 use brunhilde::{client, tcp, AppendRow, RowWithoutEventId, RowsRequest};
@@ -17,7 +18,13 @@ async fn test_tcp() {
         .spawn()
         .unwrap();
 
-    let client_tcp_stream = TcpStream::connect("127.0.0.1:8421").await.unwrap();
+    let client_tcp_stream = timeout(
+        Duration::from_millis(5000),
+        TcpStream::connect("127.0.0.1:8421"),
+    )
+    .await
+    .unwrap()
+    .unwrap();
 
     let table_id = Uuid::new_v4();
 
