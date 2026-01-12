@@ -2,7 +2,8 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use smol_str::SmolStr;
-use tokio::sync::RwLock;
+use squalid::_d;
+use tokio::{fs, sync::RwLock};
 use uuid::Uuid;
 
 pub enum Request {
@@ -104,4 +105,15 @@ impl Database {
 
 async fn create_table_locks(directory: &Path) -> TableLocks {
     let tables_dir = directory.join("tables");
+    if !fs::try_exists(&tables_dir).await.unwrap() {
+        fs::create_dir(&tables_dir).await.unwrap();
+        return _d();
+    }
+    let mut ret = _d();
+    let mut dir_entries = fs::read_dir(&tables_dir).await.unwrap();
+    while let Some(table_file) = dir_entries.next_entry().await.unwrap() {
+        let table_uuid = Uuid::try_parse(table_file.file_name().to_str().unwrap()).unwrap();
+        ret.insert(table_uuid, Table::new(table_uuid));
+    }
+    ret
 }
