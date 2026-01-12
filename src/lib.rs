@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use ouroboros::self_referencing;
 use smol_str::SmolStr;
 use squalid::_d;
 use tokio::{
@@ -59,10 +60,13 @@ pub async fn request(request: Request, database: &Database) -> Response<'_> {
             let event_id = table.append(append_row.row, &database.directory).await;
             Response::AppendRow(event_id)
         }
-        Request::Rows(rows) => Response::Rows({
-            let table = database.table_for_reading(rows.table).await;
-            Rows::new(table.read_all(), table)
-        }),
+        Request::Rows(rows) => Response::Rows(
+            RowsBuilder {
+                read_guard: database.table_for_reading(rows.table).await,
+                rows_builder: |read_guard: &RwLockReadGuard<'_, Table>| read_guard.read_all(),
+            }
+            .build(),
+        ),
     }
 }
 
@@ -71,15 +75,11 @@ pub enum Response<'a> {
     Rows(Rows<'a>),
 }
 
+#[self_referencing]
 pub struct Rows<'a> {
-    pub rows: &'a [Row],
     pub read_guard: RwLockReadGuard<'a, Table>,
-}
-
-impl<'a> Rows<'a> {
-    pub fn new(rows: &'a [Row], read_guard: RwLockReadGuard<'a, Table>) -> Self {
-        Self { rows, read_guard }
-    }
+    #[borrows(read_guard)]
+    pub rows: &'this [Row],
 }
 
 pub type TableLocks = HashMap<Uuid, RwLock<Table>>;
