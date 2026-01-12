@@ -62,7 +62,7 @@ impl RowWithoutEventId {
     }
 }
 
-#[derive(Clone, Archive, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Archive, Serialize, Deserialize)]
 pub struct Row {
     pub uuid: Uuid,
     pub type_: SmolStr,

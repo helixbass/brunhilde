@@ -49,11 +49,27 @@ pub enum Request {
     Request(crate::Request),
 }
 
-#[derive(Archive, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Archive, Serialize, Deserialize)]
 pub enum Response {
     AppendRow(EventId),
     Rows(Rows),
     CreateTable,
+}
+
+impl Response {
+    pub fn as_append_row(&self) -> EventId {
+        match self {
+            Self::AppendRow(event_id) => *event_id,
+            _ => panic!("Expected append row"),
+        }
+    }
+
+    pub fn as_rows(&self) -> &Rows {
+        match self {
+            Self::Rows(rows) => rows,
+            _ => panic!("Expected rows"),
+        }
+    }
 }
 
 impl<'a> From<crate::Response<'a>> for Response {
@@ -67,7 +83,7 @@ impl<'a> From<crate::Response<'a>> for Response {
     }
 }
 
-#[derive(Archive, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Archive, Serialize, Deserialize)]
 pub struct Rows {
     pub rows: Vec<Row>,
 }
