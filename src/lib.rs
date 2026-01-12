@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use async_trait::async_trait;
 use ouroboros::self_referencing;
 use rkyv::{rancor, Archive, Deserialize, Serialize};
 use smol_str::SmolStr;
@@ -10,6 +11,8 @@ use tokio::{
     sync::{RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 use uuid::Uuid;
+
+pub mod tcp;
 
 pub enum Request {
     AppendRow(AppendRow),
@@ -244,4 +247,10 @@ async fn write_table_contents(rows: &Vec<Row>, table: Uuid, directory: &Path) {
 
 async fn read_table_contents(dir_entry: &DirEntry) -> Vec<Row> {
     rkyv::from_bytes::<_, rancor::Error>(&fs::read(&dir_entry.path()).await.unwrap()).unwrap()
+}
+
+#[async_trait]
+pub trait Sender<TValue>: Send + Sync {
+    async fn send(&self, value: TValue);
+    fn box_clone(&self) -> Box<dyn Sender<TValue>>;
 }
