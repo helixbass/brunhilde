@@ -9,4 +9,7 @@ rkyv = { version = "0.8.13", features = [ "smol_str-0_3", "uuid-1" ] }
 smol_str = "0.3.5"
 squalid = { git = "https://github.com/helixbass/squalid", rev = "97ad97e8" }
 tokio = { version = "1", features = [ "full" ] }
-uuid = "1.19.0"
+uuid = { version = "1.19.0", features = [ "v4" ] }
+
+[dev-dependencies]
+tempfile = "3.24.0"

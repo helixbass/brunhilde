@@ -16,15 +16,43 @@ pub enum Request {
     Rows(RowsRequest),
 }
 
+impl From<AppendRow> for Request {
+    fn from(value: AppendRow) -> Self {
+        Self::AppendRow(value)
+    }
+}
+
+impl From<RowsRequest> for Request {
+    fn from(value: RowsRequest) -> Self {
+        Self::Rows(value)
+    }
+}
+
 pub struct AppendRow {
     pub table: Uuid,
     pub row: RowWithoutEventId,
+}
+
+impl AppendRow {
+    pub fn new(table: Uuid, row: RowWithoutEventId) -> Self {
+        Self { table, row }
+    }
 }
 
 pub struct RowWithoutEventId {
     pub uuid: Uuid,
     pub type_: SmolStr,
     pub payload: Vec<u8>,
+}
+
+impl RowWithoutEventId {
+    pub fn new(uuid: Uuid, type_: SmolStr, payload: Vec<u8>) -> Self {
+        Self {
+            uuid,
+            type_,
+            payload,
+        }
+    }
 }
 
 #[derive(Clone, Archive, Serialize, Deserialize)]
@@ -48,6 +76,12 @@ pub type EventId = u32;
 
 pub struct RowsRequest {
     pub table: Uuid,
+}
+
+impl RowsRequest {
+    pub fn new(table: Uuid) -> Self {
+        Self { table }
+    }
 }
 
 pub struct CreateTable {
