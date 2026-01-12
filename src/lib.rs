@@ -25,6 +25,7 @@ pub struct RowWithoutEventId {
     pub payload: Vec<u8>,
 }
 
+#[derive(Clone)]
 pub struct Row {
     pub uuid: Uuid,
     pub type_: SmolStr,
@@ -54,8 +55,8 @@ pub struct CreateTable {
 pub async fn request(request: Request, database: &Database) -> Response<'_> {
     match request {
         Request::AppendRow(append_row) => {
-            let table = database.lock_table_for_writing(append_row.table).await;
-            table.append(append_row.row).await;
+            let mut table = database.lock_table_for_writing(append_row.table).await;
+            let event_id = table.append(append_row.row, &database.directory).await;
             Response::AppendRow(event_id)
         }
         Request::Rows(rows) => Response::Rows({
@@ -109,8 +110,10 @@ impl Database {
         if self.table_locks.contains_key(&table) {
             panic!("tried to create existing table");
         }
-        self.table_locks
-            .insert(table, RwLock::new(Table::brand_new(&self.directory).await));
+        self.table_locks.insert(
+            table,
+            RwLock::new(Table::brand_new(table, &self.directory).await),
+        );
     }
 }
 
@@ -140,7 +143,15 @@ pub struct Table {
 
 impl Table {
     pub async fn new_from_disk(uuid: Uuid, dir_entry: &DirEntry) -> Self {
-        Self { uuid }
+        let rows = read_table_contents(uuid, dir_entry).await;
+        Self {
+            uuid,
+            next_event_id: match rows.is_empty() {
+                true => 1,
+                false => rows[rows.len() - 1].event_id + 1,
+            },
+            rows,
+        }
     }
 
     pub fn get_next_event_id(&self) -> EventId {
@@ -151,14 +162,30 @@ impl Table {
         &self.rows
     }
 
-    pub async fn brand_new(directory: &Path) -> Self {
-        unimplemented!()
+    pub async fn brand_new(uuid: Uuid, directory: &Path) -> Self {
+        let rows: Vec<Row> = _d();
+        write_table_contents(rows.clone(), uuid, directory).await;
+        Self {
+            uuid,
+            next_event_id: 1,
+            rows,
+        }
     }
 
-    pub async fn append(&mut self, row: RowWithoutEventId) {
-        let row = add_event_id(row, self.next_event_id);
-        unimplemented!();
+    pub async fn append(&mut self, row: RowWithoutEventId, directory: &Path) -> EventId {
+        let event_id = self.next_event_id;
+        let row = add_event_id(row, event_id);
         self.rows.push(row);
+        write_table_contents(self.rows.clone(), self.uuid, directory).await;
         self.next_event_id += 1;
+        event_id
     }
+}
+
+async fn write_table_contents(rows: Vec<Row>, table: Uuid, directory: &Path) {
+    unimplemented!()
+}
+
+async fn read_table_contents(table: Uuid, dir_entry: &DirEntry) -> Vec<Row> {
+    unimplemented!()
 }
