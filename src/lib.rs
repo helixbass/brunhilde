@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use ouroboros::self_referencing;
+use rkyv::{rancor, Archive, Deserialize, Serialize};
 use smol_str::SmolStr;
 use squalid::_d;
 use tokio::{
@@ -26,7 +27,7 @@ pub struct RowWithoutEventId {
     pub payload: Vec<u8>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Archive, Serialize, Deserialize)]
 pub struct Row {
     pub uuid: Uuid,
     pub type_: SmolStr,
@@ -164,7 +165,7 @@ impl Table {
 
     pub async fn brand_new(uuid: Uuid, directory: &Path) -> Self {
         let rows: Vec<Row> = _d();
-        write_table_contents(rows.clone(), uuid, directory).await;
+        write_table_contents(&rows, uuid, directory).await;
         Self {
             uuid,
             next_event_id: 1,
@@ -176,14 +177,19 @@ impl Table {
         let event_id = self.next_event_id;
         let row = add_event_id(row, event_id);
         self.rows.push(row);
-        write_table_contents(self.rows.clone(), self.uuid, directory).await;
+        write_table_contents(&self.rows, self.uuid, directory).await;
         self.next_event_id += 1;
         event_id
     }
 }
 
-async fn write_table_contents(rows: Vec<Row>, table: Uuid, directory: &Path) {
-    unimplemented!()
+async fn write_table_contents(rows: &Vec<Row>, table: Uuid, directory: &Path) {
+    fs::write(
+        &directory.join(table.to_string()),
+        rkyv::to_bytes::<rancor::Error>(rows).unwrap(),
+    )
+    .await
+    .unwrap()
 }
 
 async fn read_table_contents(table: Uuid, dir_entry: &DirEntry) -> Vec<Row> {

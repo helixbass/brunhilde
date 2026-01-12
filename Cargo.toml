@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 ouroboros = "0.18.5"
-rkyv = "0.8.13"
+rkyv = { version = "0.8.13", features = [ "smol_str-0_3", "uuid-1" ] }
 smol_str = "0.3.5"
 squalid = { git = "https://github.com/helixbass/squalid", rev = "97ad97e8" }
 tokio = { version = "1", features = [ "full" ] }
