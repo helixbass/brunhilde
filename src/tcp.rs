@@ -2,7 +2,7 @@ use rkyv::{rancor, Archive, Deserialize, Serialize};
 use tokio::{io::AsyncReadExt, net::TcpStream};
 use uuid::Uuid;
 
-use crate::{Database, Sender};
+use crate::{Database, EventId, Row, Sender};
 
 pub async fn request(
     mut tcp_stream: TcpStream,
@@ -30,4 +30,24 @@ pub async fn request(
 pub enum Request {
     CreateTable(Uuid),
     Request(crate::Request),
+}
+
+pub enum Response {
+    AppendRow(EventId),
+    Rows(Rows),
+}
+
+impl<'a> From<crate::Response<'a>> for Response {
+    fn from(value: crate::Response<'a>) -> Self {
+        match value {
+            crate::Response::AppendRow(event_id) => Self::AppendRow(event_id),
+            crate::Response::Rows(rows) => Self::Rows(Rows {
+                rows: (*rows.borrow_rows()).to_owned(),
+            }),
+        }
+    }
+}
+
+pub struct Rows {
+    pub rows: Vec<Row>,
 }
