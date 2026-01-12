@@ -12,6 +12,7 @@ use tokio::{
 };
 use uuid::Uuid;
 
+pub mod client;
 pub mod tcp;
 
 #[derive(Archive, Serialize, Deserialize)]

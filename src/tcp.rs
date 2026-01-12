@@ -26,6 +26,9 @@ pub async fn request(
             let response = crate::request(request, database).await;
             let response: Response = response.into();
             let response = rkyv::to_bytes::<rancor::Error>(&response).unwrap();
+            let response_len = u32::try_from(response.len()).unwrap();
+            let response_len_bytes = response_len.to_be_bytes();
+            tcp_stream.write_all(&response_len_bytes).await.unwrap();
             tcp_stream.write_all(&response).await.unwrap();
         }
     }
