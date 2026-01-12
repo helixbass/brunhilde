@@ -1,14 +1,22 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
+use smol_str::SmolStr;
+use uuid::Uuid;
+
+pub enum Request {
+    AppendRow(AppendRow),
+    Rows(Rows),
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+pub struct AppendRow {
+    pub table: Uuid,
+    pub row: Row,
+}
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+pub struct Row {
+    pub uuid: Uuid,
+    pub type_: SmolStr,
+    pub payload: Vec<u8>,
+}
+
+pub struct Rows {
+    pub table: Uuid,
 }
