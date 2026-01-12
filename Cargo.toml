@@ -7,6 +7,7 @@ edition = "2024"
 anyhow = "1.0.100"
 async-trait = "0.1.89"
 clap = { version = "4.5.54", features = [ "derive" ] }
+futures = "0.3.31"
 ouroboros = "0.18.5"
 rkyv = { version = "0.8.13", features = [ "smol_str-0_3", "uuid-1" ] }
 smol_str = "0.3.5"

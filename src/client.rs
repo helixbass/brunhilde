@@ -4,9 +4,9 @@ use tokio::{
     net::TcpStream,
 };
 
-use crate::{tcp, Request};
+use crate::tcp;
 
-pub async fn request(request: Request, mut tcp: TcpStream) -> tcp::Response {
+pub async fn request(request: tcp::Request, mut tcp: TcpStream) -> tcp::Response {
     let request_bytes = rkyv::to_bytes::<rancor::Error>(&request).unwrap();
     let request_len = u32::try_from(request_bytes.len()).unwrap();
     let request_len_bytes = request_len.to_be_bytes();
