@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::pin::Pin;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -39,8 +40,9 @@ async fn main() -> Result<(), anyhow::Error> {
         match receiver.recv().await.unwrap() {
             World::TcpConnected(tcp_stream) => {
                 let join_handle = tokio::spawn({
-                    let sender: Box<dyn Sender<Uuid>> =
-                        Box::new(CreateTableSender::from(sender.clone()));
+                    let sender: Box<
+                        dyn Sender<(Uuid, Pin<Box<dyn Future<Output = ()> + Send + 'static>>)>,
+                    > = Box::new(CreateTableSender::from(sender.clone()));
                     let database = database.clone();
                     async move {
                         tcp::request(tcp_stream, &database, sender).await;
@@ -48,7 +50,7 @@ async fn main() -> Result<(), anyhow::Error> {
                 });
                 tcp_requests.push(join_handle);
             }
-            World::CreateTable(table) => {
+            World::CreateTable((table, callback)) => {
                 unimplemented!()
             }
         }
@@ -62,7 +64,7 @@ struct Args {
 
 enum World {
     TcpConnected(TcpStream),
-    CreateTable(Uuid),
+    CreateTable((Uuid, Pin<Box<dyn Future<Output = ()> + Send + 'static>>)),
 }
 
 impl From<TcpStream> for World {
@@ -83,12 +85,14 @@ impl From<mpsc::Sender<World>> for CreateTableSender {
 }
 
 #[async_trait]
-impl Sender<Uuid> for CreateTableSender {
-    async fn send(&self, value: Uuid) {
+impl Sender<(Uuid, Pin<Box<dyn Future<Output = ()> + Send + 'static>>)> for CreateTableSender {
+    async fn send(&self, value: (Uuid, Pin<Box<dyn Future<Output = ()> + Send + 'static>>)) {
         self.sender.send(World::CreateTable(value)).await.unwrap();
     }
 
-    fn box_clone(&self) -> Box<dyn Sender<Uuid>> {
+    fn box_clone(
+        &self,
+    ) -> Box<dyn Sender<(Uuid, Pin<Box<dyn Future<Output = ()> + Send + 'static>>)>> {
         Box::new(self.clone())
     }
 }
