@@ -1,5 +1,8 @@
 use rkyv::{rancor, Archive, Deserialize, Serialize};
-use tokio::{io::AsyncReadExt, net::TcpStream};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::TcpStream,
+};
 use uuid::Uuid;
 
 use crate::{Database, EventId, Row, Sender};
@@ -21,7 +24,9 @@ pub async fn request(
         }
         Request::Request(request) => {
             let response = crate::request(request, database).await;
-            unimplemented!()
+            let response: Response = response.into();
+            let response = rkyv::to_bytes::<rancor::Error>(&response).unwrap();
+            tcp_stream.write_all(&response).await.unwrap();
         }
     }
 }
@@ -32,6 +37,7 @@ pub enum Request {
     Request(crate::Request),
 }
 
+#[derive(Archive, Serialize, Deserialize)]
 pub enum Response {
     AppendRow(EventId),
     Rows(Rows),
@@ -48,6 +54,7 @@ impl<'a> From<crate::Response<'a>> for Response {
     }
 }
 
+#[derive(Archive, Serialize, Deserialize)]
 pub struct Rows {
     pub rows: Vec<Row>,
 }
