@@ -110,6 +110,22 @@ pub enum Response<'a> {
     Rows(Rows<'a>),
 }
 
+impl<'a> Response<'a> {
+    pub fn as_append_row(&self) -> EventId {
+        match self {
+            Self::AppendRow(event_id) => *event_id,
+            _ => panic!("expected append row"),
+        }
+    }
+
+    pub fn as_rows(&self) -> &Rows<'a> {
+        match self {
+            Self::Rows(rows) => rows,
+            _ => panic!("expected rows"),
+        }
+    }
+}
+
 #[self_referencing]
 pub struct Rows<'a> {
     pub read_guard: RwLockReadGuard<'a, Table>,
