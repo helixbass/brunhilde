@@ -14,6 +14,7 @@ use uuid::Uuid;
 
 pub mod tcp;
 
+#[derive(Archive, Serialize, Deserialize)]
 pub enum Request {
     AppendRow(AppendRow),
     Rows(RowsRequest),
@@ -31,6 +32,7 @@ impl From<RowsRequest> for Request {
     }
 }
 
+#[derive(Archive, Serialize, Deserialize)]
 pub struct AppendRow {
     pub table: Uuid,
     pub row: RowWithoutEventId,
@@ -42,6 +44,7 @@ impl AppendRow {
     }
 }
 
+#[derive(Archive, Serialize, Deserialize)]
 pub struct RowWithoutEventId {
     pub uuid: Uuid,
     pub type_: SmolStr,
@@ -77,6 +80,7 @@ pub fn add_event_id(row: RowWithoutEventId, event_id: EventId) -> Row {
 
 pub type EventId = u32;
 
+#[derive(Archive, Serialize, Deserialize)]
 pub struct RowsRequest {
     pub table: Uuid,
 }

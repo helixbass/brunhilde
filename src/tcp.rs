@@ -1,12 +1,33 @@
-use tokio::net::TcpStream;
+use rkyv::{rancor, Archive, Deserialize, Serialize};
+use tokio::{io::AsyncReadExt, net::TcpStream};
 use uuid::Uuid;
 
 use crate::{Database, Sender};
 
 pub async fn request(
-    tcp_stream: TcpStream,
+    mut tcp_stream: TcpStream,
     database: &Database,
     create_table_sender: Box<dyn Sender<Uuid>>,
 ) {
-    unimplemented!()
+    let mut request_len_bytes: [u8; 4] = [0; 4];
+    tcp_stream.read_exact(&mut request_len_bytes).await.unwrap();
+    let request_len = usize::try_from(u32::from_be_bytes(request_len_bytes)).unwrap();
+    let mut request_bytes = vec![0; request_len];
+    tcp_stream.read_exact(&mut request_bytes).await.unwrap();
+    let request = rkyv::from_bytes::<Request, rancor::Error>(&request_bytes).unwrap();
+    match request {
+        Request::CreateTable(table) => {
+            create_table_sender.send(table).await;
+        }
+        Request::Request(request) => {
+            let response = crate::request(request, database).await;
+            unimplemented!()
+        }
+    }
+}
+
+#[derive(Archive, Serialize, Deserialize)]
+pub enum Request {
+    CreateTable(Uuid),
+    Request(crate::Request),
 }
