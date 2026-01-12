@@ -32,6 +32,15 @@ pub struct Row {
     pub event_id: EventId,
 }
 
+pub fn add_event_id(row: RowWithoutEventId, event_id: EventId) -> Row {
+    Row {
+        uuid: row.uuid,
+        type_: row.type_,
+        payload: row.payload,
+        event_id,
+    }
+}
+
 pub type EventId = u32;
 
 pub struct RowsRequest {
@@ -46,8 +55,7 @@ pub async fn request(request: Request, database: &Database) -> Response<'_> {
     match request {
         Request::AppendRow(append_row) => {
             let table = database.lock_table_for_writing(append_row.table).await;
-            let event_id = table.get_next_event_id();
-            table.append(add_event_id(append_row.row, event_id)).await;
+            table.append(append_row.row).await;
             Response::AppendRow(event_id)
         }
         Request::Rows(rows) => Response::Rows({
@@ -145,5 +153,12 @@ impl Table {
 
     pub async fn brand_new(directory: &Path) -> Self {
         unimplemented!()
+    }
+
+    pub async fn append(&mut self, row: RowWithoutEventId) {
+        let row = add_event_id(row, self.next_event_id);
+        unimplemented!();
+        self.rows.push(row);
+        self.next_event_id += 1;
     }
 }
