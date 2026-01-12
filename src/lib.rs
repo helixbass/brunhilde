@@ -5,14 +5,13 @@ use smol_str::SmolStr;
 use squalid::_d;
 use tokio::{
     fs::{self, DirEntry},
-    sync::{RwLock, RwLockReadGuard},
+    sync::{RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 use uuid::Uuid;
 
 pub enum Request {
     AppendRow(AppendRow),
     Rows(RowsRequest),
-    CreateTable(CreateTable),
 }
 
 pub struct AppendRow {
@@ -47,7 +46,7 @@ pub async fn request(request: Request, database: &Database) -> Response<'_> {
     match request {
         Request::AppendRow(append_row) => {
             let table = database.lock_table_for_writing(append_row.table).await;
-            let event_id = table.get_next_event_id().await;
+            let event_id = table.get_next_event_id();
             table.append(add_event_id(append_row.row, event_id)).await;
             Response::AppendRow(event_id)
         }
@@ -55,17 +54,12 @@ pub async fn request(request: Request, database: &Database) -> Response<'_> {
             let table = database.table_for_reading(rows.table).await;
             Rows::new(table.read_all(), table)
         }),
-        Request::CreateTable(create_table) => {
-            database.create_table(create_table.table).await;
-            Response::CreateTable
-        }
     }
 }
 
 pub enum Response<'a> {
     AppendRow(EventId),
     Rows(Rows<'a>),
-    CreateTable,
 }
 
 pub struct Rows<'a> {
@@ -95,12 +89,20 @@ impl Database {
         }
     }
 
-    pub async fn lock_table_for_writing(&self, table: Uuid) -> TableWriteLock<'_> {
-        unimplemented!()
+    pub async fn lock_table_for_writing(&self, table: Uuid) -> RwLockWriteGuard<'_, Table> {
+        self.table_locks[&table].write().await
     }
 
     pub async fn table_for_reading(&self, table: Uuid) -> RwLockReadGuard<'_, Table> {
-        unimplemented!()
+        self.table_locks[&table].read().await
+    }
+
+    pub async fn create_table(&mut self, table: Uuid) {
+        if self.table_locks.contains_key(&table) {
+            panic!("tried to create existing table");
+        }
+        self.table_locks
+            .insert(table, RwLock::new(Table::brand_new(&self.directory).await));
     }
 }
 
@@ -116,7 +118,7 @@ async fn create_table_locks(directory: &Path) -> TableLocks {
         let table_uuid = Uuid::try_parse(table_file.file_name().to_str().unwrap()).unwrap();
         ret.insert(
             table_uuid,
-            RwLock::new(Table::new_from_disk(table_uuid, &table_file)),
+            RwLock::new(Table::new_from_disk(table_uuid, &table_file).await),
         );
     }
     ret
@@ -129,7 +131,7 @@ pub struct Table {
 }
 
 impl Table {
-    pub fn new_from_disk(uuid: Uuid, dir_entry: &DirEntry) -> Self {
+    pub async fn new_from_disk(uuid: Uuid, dir_entry: &DirEntry) -> Self {
         Self { uuid }
     }
 
@@ -139,5 +141,9 @@ impl Table {
 
     pub fn read_all(&self) -> &[Row] {
         &self.rows
+    }
+
+    pub async fn brand_new(directory: &Path) -> Self {
+        unimplemented!()
     }
 }
