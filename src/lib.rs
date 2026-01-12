@@ -3,7 +3,10 @@ use std::path::{Path, PathBuf};
 
 use smol_str::SmolStr;
 use squalid::_d;
-use tokio::{fs, sync::RwLock};
+use tokio::{
+    fs::{self, DirEntry},
+    sync::{RwLock, RwLockReadGuard},
+};
 use uuid::Uuid;
 
 pub enum Request {
@@ -40,7 +43,7 @@ pub struct CreateTable {
     pub table: Uuid,
 }
 
-pub async fn request(request: Request, database: &Database) -> Response {
+pub async fn request(request: Request, database: &Database) -> Response<'_> {
     match request {
         Request::AppendRow(append_row) => {
             let table = database.lock_table_for_writing(append_row.table).await;
@@ -48,13 +51,10 @@ pub async fn request(request: Request, database: &Database) -> Response {
             table.append(add_event_id(append_row.row, event_id)).await;
             Response::AppendRow(event_id)
         }
-        Request::Rows(rows) => Response::Rows(Rows::new(
-            database
-                .table_for_reading(rows.table)
-                .await
-                .read_all()
-                .await,
-        )),
+        Request::Rows(rows) => Response::Rows({
+            let table = database.table_for_reading(rows.table).await;
+            Rows::new(table.read_all(), table)
+        }),
         Request::CreateTable(create_table) => {
             database.create_table(create_table.table).await;
             Response::CreateTable
@@ -62,19 +62,20 @@ pub async fn request(request: Request, database: &Database) -> Response {
     }
 }
 
-pub enum Response {
+pub enum Response<'a> {
     AppendRow(EventId),
-    Rows(Rows),
+    Rows(Rows<'a>),
     CreateTable,
 }
 
-pub struct Rows {
-    pub rows: Vec<Row>,
+pub struct Rows<'a> {
+    pub rows: &'a [Row],
+    pub read_guard: RwLockReadGuard<'a, Table>,
 }
 
-impl Rows {
-    pub fn new(rows: Vec<Row>) -> Self {
-        Self { rows }
+impl<'a> Rows<'a> {
+    pub fn new(rows: &'a [Row], read_guard: RwLockReadGuard<'a, Table>) -> Self {
+        Self { rows, read_guard }
     }
 }
 
@@ -98,7 +99,7 @@ impl Database {
         unimplemented!()
     }
 
-    pub async fn table_for_reading(&self, table: Uuid) -> TableRead<'_> {
+    pub async fn table_for_reading(&self, table: Uuid) -> RwLockReadGuard<'_, Table> {
         unimplemented!()
     }
 }
@@ -109,11 +110,34 @@ async fn create_table_locks(directory: &Path) -> TableLocks {
         fs::create_dir(&tables_dir).await.unwrap();
         return _d();
     }
-    let mut ret = _d();
+    let mut ret: TableLocks = _d();
     let mut dir_entries = fs::read_dir(&tables_dir).await.unwrap();
     while let Some(table_file) = dir_entries.next_entry().await.unwrap() {
         let table_uuid = Uuid::try_parse(table_file.file_name().to_str().unwrap()).unwrap();
-        ret.insert(table_uuid, Table::new(table_uuid));
+        ret.insert(
+            table_uuid,
+            RwLock::new(Table::new_from_disk(table_uuid, &table_file)),
+        );
     }
     ret
+}
+
+pub struct Table {
+    pub uuid: Uuid,
+    pub next_event_id: EventId,
+    pub rows: Vec<Row>,
+}
+
+impl Table {
+    pub fn new_from_disk(uuid: Uuid, dir_entry: &DirEntry) -> Self {
+        Self { uuid }
+    }
+
+    pub fn get_next_event_id(&self) -> EventId {
+        self.next_event_id
+    }
+
+    pub fn read_all(&self) -> &[Row] {
+        &self.rows
+    }
 }
