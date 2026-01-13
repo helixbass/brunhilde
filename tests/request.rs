@@ -18,7 +18,7 @@ async fn test_create_table() {
         AppendRow::new(
             table_id,
             RowWithoutEventId::new(
-                row_uuid,
+                Some(row_uuid),
                 "INSERT_FOO".to_smolstr(),
                 rkyv::to_bytes::<rancor::Error>(&payload)
                     .unwrap()
@@ -34,7 +34,7 @@ async fn test_create_table() {
     let rows = rows.as_rows();
     let rows = rows.borrow_rows();
     assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0].uuid, row_uuid);
+    assert_eq!(rows[0].uuid, Some(row_uuid));
     assert_eq!(rows[0].type_, "INSERT_FOO".to_smolstr());
     assert_eq!(
         rkyv::access::<ArchivedVec<ArchivedString>, rancor::Error>(&rows[0].payload).unwrap(),

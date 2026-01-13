@@ -47,13 +47,13 @@ impl AppendRow {
 
 #[derive(Archive, Serialize, Deserialize)]
 pub struct RowWithoutEventId {
-    pub uuid: Uuid,
+    pub uuid: Option<Uuid>,
     pub type_: SmolStr,
     pub payload: Vec<u8>,
 }
 
 impl RowWithoutEventId {
-    pub fn new(uuid: Uuid, type_: SmolStr, payload: Vec<u8>) -> Self {
+    pub fn new(uuid: Option<Uuid>, type_: SmolStr, payload: Vec<u8>) -> Self {
         Self {
             uuid,
             type_,
@@ -64,7 +64,7 @@ impl RowWithoutEventId {
 
 #[derive(Clone, Debug, PartialEq, Eq, Archive, Serialize, Deserialize)]
 pub struct Row {
-    pub uuid: Uuid,
+    pub uuid: Option<Uuid>,
     pub type_: SmolStr,
     pub payload: Vec<u8>,
     pub event_id: EventId,
