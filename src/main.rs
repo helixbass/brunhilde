@@ -21,7 +21,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let (sender, mut receiver) = channel::<World>(100);
 
-    let listener = TcpListener::bind("127.0.0.1:8421").await.unwrap();
+    let listener = TcpListener::bind("0.0.0.0:8421").await.unwrap();
 
     tokio::spawn({
         let sender = sender.clone();
