@@ -52,6 +52,7 @@ pub enum Request {
 #[derive(Debug, PartialEq, Eq, Archive, Serialize, Deserialize)]
 pub enum Response {
     AppendRow(EventId),
+    AppendRows(Vec<EventId>),
     Rows(Rows),
     CreateTable,
 }
@@ -61,6 +62,13 @@ impl Response {
         match self {
             Self::AppendRow(event_id) => *event_id,
             _ => panic!("Expected append row"),
+        }
+    }
+
+    pub fn as_append_rows(&self) -> &[EventId] {
+        match self {
+            Self::AppendRows(event_ids) => event_ids,
+            _ => panic!("Expected append rows"),
         }
     }
 
@@ -76,6 +84,7 @@ impl<'a> From<crate::Response<'a>> for Response {
     fn from(value: crate::Response<'a>) -> Self {
         match value {
             crate::Response::AppendRow(event_id) => Self::AppendRow(event_id),
+            crate::Response::AppendRows(event_ids) => Self::AppendRows(event_ids),
             crate::Response::Rows(rows) => Self::Rows(Rows {
                 rows: (*rows.borrow_rows()).to_owned(),
             }),

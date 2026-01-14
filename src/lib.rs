@@ -18,12 +18,19 @@ pub mod tcp;
 #[derive(Archive, Serialize, Deserialize)]
 pub enum Request {
     AppendRow(AppendRow),
+    AppendRows(AppendRows),
     Rows(RowsRequest),
 }
 
 impl From<AppendRow> for Request {
     fn from(value: AppendRow) -> Self {
         Self::AppendRow(value)
+    }
+}
+
+impl From<AppendRows> for Request {
+    fn from(value: AppendRows) -> Self {
+        Self::AppendRows(value)
     }
 }
 
@@ -42,6 +49,18 @@ pub struct AppendRow {
 impl AppendRow {
     pub fn new(table: Uuid, row: RowWithoutEventId) -> Self {
         Self { table, row }
+    }
+}
+
+#[derive(Archive, Serialize, Deserialize)]
+pub struct AppendRows {
+    pub table: Uuid,
+    pub rows: Vec<RowWithoutEventId>,
+}
+
+impl AppendRows {
+    pub fn new(table: Uuid, rows: Vec<RowWithoutEventId>) -> Self {
+        Self { table, rows }
     }
 }
 
@@ -103,6 +122,13 @@ pub async fn request(request: Request, database: &Database) -> Response<'_> {
             let event_id = table.append(append_row.row, &database.directory).await;
             Response::AppendRow(event_id)
         }
+        Request::AppendRows(append_rows) => {
+            let mut table = database.lock_table_for_writing(append_rows.table).await;
+            let event_ids = table
+                .append_multiple(append_rows.rows, &database.directory)
+                .await;
+            Response::AppendRows(event_ids)
+        }
         Request::Rows(rows) => Response::Rows(
             RowsBuilder {
                 read_guard: database.table_for_reading(rows.table).await,
@@ -115,6 +141,7 @@ pub async fn request(request: Request, database: &Database) -> Response<'_> {
 
 pub enum Response<'a> {
     AppendRow(EventId),
+    AppendRows(Vec<EventId>),
     Rows(Rows<'a>),
 }
 
@@ -123,6 +150,13 @@ impl<'a> Response<'a> {
         match self {
             Self::AppendRow(event_id) => *event_id,
             _ => panic!("expected append row"),
+        }
+    }
+
+    pub fn as_append_rows(&self) -> &[EventId] {
+        match self {
+            Self::AppendRows(event_ids) => event_ids,
+            _ => panic!("expected append rows"),
         }
     }
 
@@ -238,6 +272,23 @@ impl Table {
         write_table_contents(&self.rows, self.uuid, directory).await;
         self.next_event_id += 1;
         event_id
+    }
+
+    pub async fn append_multiple(
+        &mut self,
+        rows: Vec<RowWithoutEventId>,
+        directory: &Path,
+    ) -> Vec<EventId> {
+        let mut ret: Vec<EventId> = _d();
+        for row in rows {
+            let event_id = self.next_event_id;
+            let row = add_event_id(row, event_id);
+            self.rows.push(row);
+            self.next_event_id += 1;
+            ret.push(event_id);
+        }
+        write_table_contents(&self.rows, self.uuid, directory).await;
+        ret
     }
 }
 
