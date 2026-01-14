@@ -49,6 +49,12 @@ pub enum Request {
     Request(crate::Request),
 }
 
+impl From<crate::Request> for Request {
+    fn from(value: crate::Request) -> Self {
+        Self::Request(value)
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Archive, Serialize, Deserialize)]
 pub enum Response {
     AppendRow(EventId),
@@ -76,6 +82,20 @@ impl Response {
         match self {
             Self::Rows(rows) => rows,
             _ => panic!("Expected rows"),
+        }
+    }
+
+    pub fn into_rows(self) -> Rows {
+        match self {
+            Self::Rows(rows) => rows,
+            _ => panic!("Expected rows"),
+        }
+    }
+
+    pub fn as_create_table(&self) {
+        match self {
+            Self::CreateTable => (),
+            _ => panic!("Expected create table"),
         }
     }
 }
