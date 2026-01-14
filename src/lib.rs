@@ -64,7 +64,7 @@ impl AppendRows {
     }
 }
 
-#[derive(Archive, Serialize, Deserialize)]
+#[derive(Clone, Archive, Serialize, Deserialize)]
 pub struct RowWithoutEventId {
     pub uuid: Option<Uuid>,
     pub type_: SmolStr,
