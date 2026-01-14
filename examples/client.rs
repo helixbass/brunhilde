@@ -19,7 +19,7 @@ async fn main() {
     let response = client::request(tcp::Request::CreateTable(table_id), client_tcp_stream).await;
     assert_eq!(response, tcp::Response::CreateTable);
 
-    let row_uuid = Uuid::new_v4();
+    let row_id = Uuid::new_v4();
     let payload: Vec<String> = vec!["foo".to_owned(), "bar".to_owned()];
 
     let client_tcp_stream = connect().await;
@@ -29,7 +29,7 @@ async fn main() {
             AppendRow::new(
                 table_id,
                 RowWithoutEventId::new(
-                    Some(row_uuid),
+                    Some(row_id),
                     "INSERT_FOO".to_smolstr(),
                     rkyv::to_bytes::<rancor::Error>(&payload)
                         .unwrap()
@@ -54,7 +54,7 @@ async fn main() {
     let response = response.as_rows();
     let rows = &response.rows;
     assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0].uuid, Some(row_uuid));
+    assert_eq!(rows[0].id, Some(row_id));
     assert_eq!(rows[0].type_, "INSERT_FOO".to_smolstr());
     assert_eq!(
         rkyv::access::<ArchivedVec<ArchivedString>, rancor::Error>(&rows[0].payload).unwrap(),

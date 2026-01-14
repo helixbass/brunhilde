@@ -66,24 +66,20 @@ impl AppendRows {
 
 #[derive(Clone, Archive, Serialize, Deserialize)]
 pub struct RowWithoutEventId {
-    pub uuid: Option<Uuid>,
+    pub id: Option<Uuid>,
     pub type_: SmolStr,
     pub payload: Vec<u8>,
 }
 
 impl RowWithoutEventId {
-    pub fn new(uuid: Option<Uuid>, type_: SmolStr, payload: Vec<u8>) -> Self {
-        Self {
-            uuid,
-            type_,
-            payload,
-        }
+    pub fn new(id: Option<Uuid>, type_: SmolStr, payload: Vec<u8>) -> Self {
+        Self { id, type_, payload }
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Archive, Serialize, Deserialize)]
 pub struct Row {
-    pub uuid: Option<Uuid>,
+    pub id: Option<Uuid>,
     pub type_: SmolStr,
     pub payload: Vec<u8>,
     pub event_id: EventId,
@@ -91,7 +87,7 @@ pub struct Row {
 
 pub fn add_event_id(row: RowWithoutEventId, event_id: EventId) -> Row {
     Row {
-        uuid: row.uuid,
+        id: row.id,
         type_: row.type_,
         payload: row.payload,
         event_id,
@@ -219,26 +215,26 @@ async fn create_table_locks(directory: &Path) -> TableLocks {
     let mut ret: TableLocks = _d();
     let mut dir_entries = fs::read_dir(&tables_dir).await.unwrap();
     while let Some(table_file) = dir_entries.next_entry().await.unwrap() {
-        let table_uuid = Uuid::try_parse(table_file.file_name().to_str().unwrap()).unwrap();
+        let table_id = Uuid::try_parse(table_file.file_name().to_str().unwrap()).unwrap();
         ret.insert(
-            table_uuid,
-            RwLock::new(Table::new_from_disk(table_uuid, &table_file).await),
+            table_id,
+            RwLock::new(Table::new_from_disk(table_id, &table_file).await),
         );
     }
     ret
 }
 
 pub struct Table {
-    pub uuid: Uuid,
+    pub id: Uuid,
     pub next_event_id: EventId,
     pub rows: Vec<Row>,
 }
 
 impl Table {
-    pub async fn new_from_disk(uuid: Uuid, dir_entry: &DirEntry) -> Self {
+    pub async fn new_from_disk(id: Uuid, dir_entry: &DirEntry) -> Self {
         let rows = read_table_contents(dir_entry).await;
         Self {
-            uuid,
+            id,
             next_event_id: match rows.is_empty() {
                 true => 1,
                 false => rows[rows.len() - 1].event_id + 1,
@@ -255,11 +251,11 @@ impl Table {
         &self.rows
     }
 
-    pub async fn brand_new(uuid: Uuid, directory: &Path) -> Self {
+    pub async fn brand_new(id: Uuid, directory: &Path) -> Self {
         let rows: Vec<Row> = _d();
-        write_table_contents(&rows, uuid, directory).await;
+        write_table_contents(&rows, id, directory).await;
         Self {
-            uuid,
+            id,
             next_event_id: 1,
             rows,
         }
@@ -269,7 +265,7 @@ impl Table {
         let event_id = self.next_event_id;
         let row = add_event_id(row, event_id);
         self.rows.push(row);
-        write_table_contents(&self.rows, self.uuid, directory).await;
+        write_table_contents(&self.rows, self.id, directory).await;
         self.next_event_id += 1;
         event_id
     }
@@ -287,7 +283,7 @@ impl Table {
             self.next_event_id += 1;
             ret.push(event_id);
         }
-        write_table_contents(&self.rows, self.uuid, directory).await;
+        write_table_contents(&self.rows, self.id, directory).await;
         ret
     }
 }

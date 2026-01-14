@@ -12,13 +12,13 @@ async fn test_create_table() {
         database,
         db_dir: _db_dir,
     } = create_db_and_table().await;
-    let row_uuid = Uuid::new_v4();
+    let row_id = Uuid::new_v4();
     let payload: Vec<String> = vec!["foo".to_owned(), "bar".to_owned()];
     let event_id = request(
         AppendRow::new(
             table_id,
             RowWithoutEventId::new(
-                Some(row_uuid),
+                Some(row_id),
                 "INSERT_FOO".to_smolstr(),
                 rkyv::to_bytes::<rancor::Error>(&payload)
                     .unwrap()
@@ -34,7 +34,7 @@ async fn test_create_table() {
     let rows = rows.as_rows();
     let rows = rows.borrow_rows();
     assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0].uuid, Some(row_uuid));
+    assert_eq!(rows[0].id, Some(row_id));
     assert_eq!(rows[0].type_, "INSERT_FOO".to_smolstr());
     assert_eq!(
         rkyv::access::<ArchivedVec<ArchivedString>, rancor::Error>(&rows[0].payload).unwrap(),
@@ -79,7 +79,7 @@ async fn test_append_rows() {
     let response_rows = response_rows.as_rows();
     let response_rows = response_rows.borrow_rows();
     assert_eq!(response_rows.len(), 3);
-    assert_eq!(response_rows[0].uuid, None);
+    assert_eq!(response_rows[0].id, None);
     assert_eq!(response_rows[0].type_, "INSERT_FOO".to_smolstr());
     assert_eq!(
         rkyv::access::<ArchivedVec<ArchivedString>, rancor::Error>(&response_rows[0].payload)
@@ -87,7 +87,7 @@ async fn test_append_rows() {
         &vec!["foo".to_owned(), "bar".to_owned()],
     );
     assert_eq!(response_rows[0].event_id, event_ids[0]);
-    assert_eq!(response_rows[2].uuid, Some(rows[2].uuid.unwrap()));
+    assert_eq!(response_rows[2].id, Some(rows[2].id.unwrap()));
 }
 
 async fn create_db_and_table() -> DbAndTable {
